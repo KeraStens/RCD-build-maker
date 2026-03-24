@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RCD Build Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0b0d; --bg2:#111318; --bg3:#181b22; --bg4:#1e2230;
+  --border:#252a38; --border2:#2e3448;
+  --text:#e2e8f8; --muted:#6b738f; --dim:#3d4560;
+  --accent:#00d4ff; --accent2:#ff6b35; --accent3:#a0ff60;
+  --red:#ff4466; --yellow:#ffd060;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:0;}
+
+.hdr{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:50;}
+.hdr-logo{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:.06em;color:var(--accent);display:flex;align-items:center;gap:10px;}
+.hdr-logo span{color:var(--text);}
+.hdr-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;display:inline-block;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hdr-actions{display:flex;gap:8px;}
+
+.btn{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;letter-spacing:.06em;padding:7px 16px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--muted);cursor:pointer;transition:all .15s;text-transform:uppercase;}
+.btn:hover{border-color:var(--dim);color:var(--text);background:var(--bg4);}
+.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
+.btn.primary:hover{background:#33ddff;}
+.btn.danger{border-color:#3a1520;color:var(--red);}
+.btn.danger:hover{background:#1a0810;}
+.btn.success{border-color:#1a3a10;color:var(--accent3);}
+.btn.success:hover{background:#0d1f08;}
+
+.layout{max-width:1100px;margin:0 auto;padding:28px 24px 80px;display:grid;grid-template-columns:1fr 340px;gap:20px;position:relative;z-index:1;}
+
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg3);}
+.panel-title{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.panel-body{padding:20px;}
+
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.field-group{display:flex;flex-direction:column;gap:6px;}
+.field-label{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.field-input{background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;transition:border-color .15s;width:100%;}
+.field-input:focus{outline:none;border-color:var(--accent);}
+.field-input::placeholder{color:var(--dim);}
+textarea.field-input{resize:vertical;min-height:72px;line-height:1.5;}
+select.field-input{cursor:pointer;}
+
+.section-tabs{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;}
+.section-tab{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:11px 18px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;}
+.section-tab:hover{color:var(--text);}
+.section-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+.tuning-section{display:none;padding:20px;}
+.tuning-section.active{display:block;}
+
+.slider-group{margin-bottom:20px;}
+.slider-group:last-child{margin-bottom:0;}
+.slider-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.slider-name{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;letter-spacing:.04em;color:var(--text);}
+.slider-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);min-width:56px;text-align:right;}
+.slider-sub{font-size:11px;color:var(--muted);margin-bottom:8px;}
+.slider-row{display:flex;align-items:center;gap:10px;}
+.slider-lim{font-family:'DM Mono',monospace;font-size:11px;color:var(--dim);min-width:36px;}
+.slider-lim.r{text-align:right;}
+
+input[type=range]{-webkit-appearance:none;flex:1;height:4px;background:var(--border2);border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid var(--bg);cursor:pointer;transition:transform .1s;}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
+
+.axle-pair{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.axle-label{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+
+.gear-controls{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.gear-count-label{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.gear-count-btns{display:flex;gap:6px;align-items:center;}
+.gcbtn{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--muted);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.gcbtn:hover{border-color:var(--accent);color:var(--accent);}
+.gear-count-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;color:var(--accent);min-width:28px;text-align:center;}
+
+.gear-table{width:100%;border-collapse:collapse;}
+.gear-table th{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);}
+.gear-table td{padding:5px 10px;border-bottom:1px solid var(--border);}
+.gear-table tr:last-child td{border-bottom:none;}
+.gear-badge{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;color:var(--muted);}
+
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);}
+.summary-row:last-child{border-bottom:none;}
+.summary-key{font-size:12px;color:var(--muted);}
+.summary-val{font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);font-weight:500;}
+
+.code-box{background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--accent3);word-break:break-all;line-height:1.6;max-height:120px;overflow-y:auto;user-select:all;margin-bottom:10px;}
+.code-actions{display:flex;gap:8px;}
+
+.builds-list{display:flex;flex-direction:column;gap:8px;}
+.build-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .15s;}
+.build-item:hover{border-color:var(--border2);}
+.build-item-info{flex:1;min-width:0;}
+.build-item-name{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.build-item-car{font-size:11px;color:var(--muted);margin-top:2px;}
+.build-item-del{background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;padding:4px 6px;border-radius:4px;transition:color .15s;flex-shrink:0;}
+.build-item-del:hover{color:var(--red);}
+.empty-state{text-align:center;padding:20px;color:var(--dim);font-size:13px;}
+
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 22px;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;letter-spacing:.04em;color:var(--text);z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:var(--accent3);color:var(--accent3);}
+.toast.err{border-color:var(--red);color:var(--red);}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:100%;max-width:480px;overflow:hidden;animation:popIn .2s ease;}
+@keyframes popIn{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-hdr-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 6px;}
+.modal-body{padding:20px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+
+.import-input{background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;color:var(--accent3);font-family:'DM Mono',monospace;font-size:11px;width:100%;resize:none;height:80px;}
+.import-input:focus{outline:none;border-color:var(--accent3);}
+
+@media(max-width:780px){.layout{grid-template-columns:1fr;}.sidebar{order:-1;}.axle-pair{grid-template-columns:1fr;}.info-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-logo"><span class="hdr-dot"></span>RCD <span>Build Maker</span></div>
+  <div class="hdr-actions">
+    <button class="btn" onclick="showImportModal()">Import Code</button>
+    <button class="btn primary" onclick="saveBuild()">Save Build</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- BUILD INFO -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Build Info</span>
+        <button class="btn danger" onclick="resetAll()">Reset to Defaults</button>
+      </div>
+      <div class="panel-body">
+        <div class="info-grid">
+          <div class="field-group">
+            <label class="field-label">Build Name</label>
+            <input class="field-input" id="buildName" placeholder="e.g. Astro Neo — Track Setup" oninput="onAnyChange()">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Car</label>
+            <input class="field-input" id="carName" placeholder="e.g. Astro Neo" oninput="onAnyChange()">
+          </div>
+          <div class="field-group" style="grid-column:1/-1">
+            <label class="field-label">Notes</label>
+            <textarea class="field-input" id="buildNotes" placeholder="Describe your setup, what it's tuned for, driving style..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TUNING TABS -->
+    <div class="panel">
+      <div class="section-tabs">
+        <button class="section-tab active" onclick="switchTab(this,'tab-align')">Alignment</button>
+        <button class="section-tab" onclick="switchTab(this,'tab-susp')">Suspension</button>
+        <button class="section-tab" onclick="switchTab(this,'tab-drive')">Drivetrain</button>
+        <button class="section-tab" onclick="switchTab(this,'tab-steer')">Steering</button>
+        <button class="section-tab" onclick="switchTab(this,'tab-gears')">Gearing</button>
+      </div>
+
+      <!-- ALIGNMENT -->
+      <div class="tuning-section active" id="tab-align">
+        <div class="axle-pair">
+          <div>
+            <div class="axle-label">Front</div>
+            <div id="sl_camber_f"></div>
+            <div id="sl_caster_f"></div>
+            <div id="sl_toe_f"></div>
+          </div>
+          <div>
+            <div class="axle-label">Rear</div>
+            <div id="sl_camber_r"></div>
+            <div id="sl_caster_r"></div>
+            <div id="sl_toe_r"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUSPENSION -->
+      <div class="tuning-section" id="tab-susp">
+        <div class="axle-pair">
+          <div>
+            <div class="axle-label">Front</div>
+            <div id="sl_stiff_f"></div>
+            <div id="sl_damp_f"></div>
+            <div id="sl_height_f"></div>
+            <div id="sl_wheel_f"></div>
+          </div>
+          <div>
+            <div class="axle-label">Rear</div>
+            <div id="sl_stiff_r"></div>
+            <div id="sl_damp_r"></div>
+            <div id="sl_height_r"></div>
+            <div id="sl_wheel_r"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DRIVETRAIN -->
+      <div class="tuning-section" id="tab-drive">
+        <div class="axle-pair">
+          <div>
+            <div class="axle-label">Global</div>
+            <div id="sl_final_drive"></div>
+            <div id="sl_torque_vec"></div>
+          </div>
+          <div>
+            <div class="axle-label">Front Diff</div>
+            <div id="sl_fdiff_pow"></div>
+            <div id="sl_fdiff_cst"></div>
+            <div id="sl_fdiff_pre"></div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:20px;">
+          <div class="axle-label">Rear Diff</div>
+          <div class="axle-pair">
+            <div>
+              <div id="sl_rdiff_pow"></div>
+              <div id="sl_rdiff_cst"></div>
+            </div>
+            <div>
+              <div id="sl_rdiff_pre"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEERING -->
+      <div class="tuning-section" id="tab-steer">
+        <div id="sl_steer_ratio"></div>
+        <div id="sl_lock2lock"></div>
+      </div>
+
+      <!-- GEARING -->
+      <div class="tuning-section" id="tab-gears">
+        <div class="gear-controls">
+          <span class="gear-count-label">Number of Gears</span>
+          <div class="gear-count-btns">
+            <button class="gcbtn" onclick="changeGearCount(-1)">−</button>
+            <span class="gear-count-val" id="gearCountVal">6</span>
+            <button class="gcbtn" onclick="changeGearCount(1)">+</button>
+          </div>
+          <span style="font-size:11px;color:var(--dim);margin-left:4px;">(1 – 18)</span>
+        </div>
+        <table class="gear-table">
+          <thead>
+            <tr>
+              <th style="width:48px">Gear</th>
+              <th style="width:70px">Ratio</th>
+              <th>Adjust</th>
+            </tr>
+          </thead>
+          <tbody id="gearRows"></tbody>
+        </table>
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
+          <div id="sl_final_drive2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" style="display:flex;flex-direction:column;gap:16px;">
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Build Summary</span></div>
+      <div class="panel-body"><div id="summaryGrid"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Share Code</span></div>
+      <div class="panel-body">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Copy and share this code. Anyone can import it on this site to load your build.</div>
+        <div class="code-box" id="shareCode">—</div>
+        <div class="code-actions">
+          <button class="btn success" style="flex:1" onclick="copyCode()">Copy Code</button>
+          <button class="btn" onclick="onAnyChange()">Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Saved Builds</span>
+        <span style="font-size:11px;color:var(--dim)" id="buildCount">0 builds</span>
+      </div>
+      <div class="panel-body" style="padding:12px;">
+        <div class="builds-list" id="buildsList">
+          <div class="empty-state">No saved builds yet.<br>Fill in a name and hit Save.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-bg" id="importModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-hdr-title">Import Build Code</span>
+      <button class="modal-close" onclick="closeModal('importModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Paste a build code below and click Import.</div>
+      <textarea class="import-input" id="importInput" placeholder="Paste RCD:... code here..."></textarea>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('importModal')">Cancel</button>
+        <button class="btn primary" onclick="importCode()">Import Build</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// SLIDER DEFINITIONS
+// key, label, sub, min, max, default, step, decimals, divider
+// divider = internal integer range multiplier
+// ─────────────────────────────────────────────
+var SLIDERS = [
+  // alignment
+  {k:'camber_f', lbl:'Camber',       sub:'Wheel tilt inward/outward',      min:-5.00, max:5.00,  def:-1.00, step:.01, dec:2},
+  {k:'caster_f', lbl:'Caster',       sub:'Steering axis tilt',             min:-5.00, max:10.00, def:0.00,  step:.01, dec:2},
+  {k:'toe_f',    lbl:'Toe',          sub:'Wheel pointing angle',           min:-0.50, max:0.50,  def:0.00,  step:.01, dec:2},
+  {k:'camber_r', lbl:'Camber',       sub:'Wheel tilt inward/outward',      min:-5.00, max:5.00,  def:-1.00, step:.01, dec:2},
+  {k:'caster_r', lbl:'Caster',       sub:'Steering axis tilt',             min:-5.00, max:10.00, def:0.00,  step:.01, dec:2},
+  {k:'toe_r',    lbl:'Toe',          sub:'Wheel pointing angle',           min:-0.50, max:0.50,  def:0.00,  step:.01, dec:2},
+  // suspension
+  {k:'stiff_f',  lbl:'Stiffness',    sub:'Spring resistance',              min:1.00,  max:5.00,  def:3.00,  step:.01, dec:2},
+  {k:'damp_f',   lbl:'Damping',      sub:'Oscillation absorption',         min:1.00,  max:5.00,  def:3.00,  step:.01, dec:2},
+  {k:'height_f', lbl:'Height Offset',sub:'Ride height offset',             min:-0.20, max:0.20,  def:0.00,  step:.01, dec:2},
+  {k:'wheel_f',  lbl:'Wheel Offset', sub:'Wheel hub position',             min:-0.10, max:0.20,  def:0.00,  step:.01, dec:2},
+  {k:'stiff_r',  lbl:'Stiffness',    sub:'Spring resistance',              min:1.00,  max:5.00,  def:3.00,  step:.01, dec:2},
+  {k:'damp_r',   lbl:'Damping',      sub:'Oscillation absorption',         min:1.00,  max:5.00,  def:3.00,  step:.01, dec:2},
+  {k:'height_r', lbl:'Height Offset',sub:'Ride height offset',             min:-0.20, max:0.20,  def:0.00,  step:.01, dec:2},
+  {k:'wheel_r',  lbl:'Wheel Offset', sub:'Wheel hub position',             min:-0.10, max:0.20,  def:0.00,  step:.01, dec:2},
+  // drivetrain
+  {k:'final_drive', lbl:'Final Drive',   sub:'Gearbox to wheel ratio multiplier', min:0.1,  max:6.5,  def:0.0,  step:.1,  dec:1},
+  {k:'final_drive2',lbl:'Final Drive',   sub:'Gearbox to wheel ratio multiplier', min:0.1,  max:6.5,  def:0.0,  step:.1,  dec:1},
+  {k:'torque_vec',  lbl:'Torque Vector', sub:'Front / rear power bias',           min:-1.0, max:1.0,  def:0.0,  step:.1,  dec:1},
+  {k:'fdiff_pow',   lbl:'Power',         sub:'Front diff locking on throttle',    min:0.0,  max:100.0,def:0.0,  step:.1,  dec:1},
+  {k:'fdiff_cst',   lbl:'Coast',         sub:'Front diff locking off throttle',   min:0.0,  max:100.0,def:0.0,  step:.1,  dec:1},
+  {k:'fdiff_pre',   lbl:'Preload',       sub:'Front diff baseline locking force', min:0.0,  max:100.0,def:0.0,  step:.1,  dec:1},
+  {k:'rdiff_pow',   lbl:'Power',         sub:'Rear diff locking on throttle',     min:0.0,  max:100.0,def:0.0,  step:.1,  dec:1},
+  {k:'rdiff_cst',   lbl:'Coast',         sub:'Rear diff locking off throttle',    min:0.0,  max:100.0,def:0.0,  step:.1,  dec:1},
+  {k:'rdiff_pre',   lbl:'Preload',       sub:'Rear diff baseline locking force',  min:0.0,  max:100.0,def:0.0,  step:.1,  dec:1},
+  // steering
+  {k:'steer_ratio', lbl:'Steering Ratio',sub:'Wheel rotation per input degree',   min:8.0,  max:28.0, def:15.0, step:.1,  dec:1},
+  {k:'lock2lock',   lbl:'Lock to Lock',  sub:'Steering wheel turns full left to right', min:1.50, max:3.50, def:2.60, step:.01, dec:2},
+];
+
+// state
+var vals = {};
+SLIDERS.forEach(function(s){ vals[s.k] = s.def; });
+
+var gearCount = 6;
+var gearVals = [];
+var GEAR_MIN = 0.10, GEAR_MAX = 7.50, GEAR_DEF = 0.10;
+function initGears(n) {
+  // sensible spread defaults
+  var defaults6 = [3.10,2.28,1.78,1.42,1.18,0.91];
+  gearVals = [];
+  for (var i=0;i<n;i++) {
+    gearVals.push(i < defaults6.length ? defaults6[i] : parseFloat((0.91 - (i-5)*0.08).toFixed(2)));
+  }
+}
+
+// ─── SLIDER RENDER ───
+function fmtLim(v, dec) { return v.toFixed(dec); }
+
+function renderSlider(s) {
+  var container = document.getElementById('sl_' + s.k);
+  if (!container) return;
+  var range = s.max - s.min;
+  var steps = Math.round(range / s.step);
+  var cur = vals[s.k];
+  var pos = Math.round((cur - s.min) / s.step);
+  container.className = 'slider-group';
+  container.innerHTML =
+    '<div class="slider-header">' +
+      '<span class="slider-name">' + s.lbl + '</span>' +
+      '<span class="slider-val" id="sv_' + s.k + '">' + cur.toFixed(s.dec) + '</span>' +
+    '</div>' +
+    '<div class="slider-sub">' + s.sub + '</div>' +
+    '<div class="slider-row">' +
+      '<span class="slider-lim">' + fmtLim(s.min, s.dec) + '</span>' +
+      '<input type="range" id="sr_' + s.k + '" min="0" max="' + steps + '" value="' + pos + '" step="1" oninput="onSlider(\'' + s.k + '\',this)">' +
+      '<span class="slider-lim r">' + fmtLim(s.max, s.dec) + '</span>' +
+    '</div>';
+}
+
+function onSlider(key, el) {
+  var s = SLIDERS.find(function(x){return x.k===key;});
+  var v = parseFloat((s.min + parseInt(el.value) * s.step).toFixed(s.dec));
+  vals[key] = v;
+  document.getElementById('sv_' + key).textContent = v.toFixed(s.dec);
+  // sync final_drive / final_drive2
+  if (key === 'final_drive') {
+    vals['final_drive2'] = v;
+    var el2 = document.getElementById('sr_final_drive2');
+    var sv2 = document.getElementById('sv_final_drive2');
+    if (el2) { var s2 = SLIDERS.find(function(x){return x.k==='final_drive2';}); el2.value = Math.round((v - s2.min)/s2.step); }
+    if (sv2) sv2.textContent = v.toFixed(2);
+    updateGearTable();
+  }
+  if (key === 'final_drive2') {
+    vals['final_drive'] = v;
+    var el1 = document.getElementById('sr_final_drive');
+    var sv1 = document.getElementById('sv_final_drive');
+    if (el1) { var s1 = SLIDERS.find(function(x){return x.k==='final_drive';}); el1.value = Math.round((v - s1.min)/s1.step); }
+    if (sv1) sv1.textContent = v.toFixed(2);
+    updateGearTable();
+  }
+  onAnyChange();
+}
+
+function setSliderVal(key, v) {
+  var s = SLIDERS.find(function(x){return x.k===key;});
+  if (!s) return;
+  v = Math.max(s.min, Math.min(s.max, parseFloat(v)));
+  vals[key] = parseFloat(v.toFixed(s.dec));
+  var el = document.getElementById('sr_' + key);
+  var disp = document.getElementById('sv_' + key);
+  if (el) el.value = Math.round((vals[key] - s.min) / s.step);
+  if (disp) disp.textContent = vals[key].toFixed(s.dec);
+}
+
+function renderAllSliders() {
+  SLIDERS.forEach(renderSlider);
+}
+
+// ─── GEARS ───
+var gearNames = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th','13th','14th','15th','16th','17th','18th'];
+
+function changeGearCount(delta) {
+  var n = Math.max(1, Math.min(18, gearCount + delta));
+  if (n === gearCount) return;
+  if (n > gearCount) {
+    for (var i = gearCount; i < n; i++) {
+      var last = gearVals[gearVals.length-1] || 0.91;
+      gearVals.push(parseFloat(Math.max(GEAR_MIN, last - 0.08).toFixed(2)));
+    }
+  } else {
+    gearVals = gearVals.slice(0, n);
+  }
+  gearCount = n;
+  document.getElementById('gearCountVal').textContent = n;
+  buildGearTable();
+  onAnyChange();
+}
+
+function buildGearTable() {
+  var tbody = document.getElementById('gearRows');
+  tbody.innerHTML = '';
+  gearVals.forEach(function(g, i) {
+    var stepsG = Math.round((GEAR_MAX - GEAR_MIN) / 0.01);
+    var posG = Math.round((g - GEAR_MIN) / 0.01);
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><span class="gear-badge">' + gearNames[i] + '</span></td>' +
+      '<td><span style="font-family:\'DM Mono\',monospace;font-size:13px;color:var(--accent)" id="gv_'+i+'">'+g.toFixed(2)+'</span></td>' +
+      '<td><input type="range" min="0" max="'+stepsG+'" value="'+posG+'" step="1" data-gi="'+i+'" oninput="onGearSlider(this)" style="width:100%"></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function updateGearTable() {
+  gearVals.forEach(function(g, i) {
+    var gv = document.getElementById('gv_'+i);
+    if (gv) gv.textContent = g.toFixed(2);
+  });
+}
+
+function onGearSlider(el) {
+  var i = parseInt(el.dataset.gi);
+  gearVals[i] = parseFloat((GEAR_MIN + parseInt(el.value)*0.01).toFixed(2));
+  updateGearTable();
+  onAnyChange();
+}
+
+// ─── TABS ───
+function switchTab(btn, id) {
+  document.querySelectorAll('.section-tab').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tuning-section').forEach(function(s){s.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// ─── SUMMARY ───
+function updateSummary() {
+  var rows = [
+    ['Build', document.getElementById('buildName').value || '—'],
+    ['Car',   document.getElementById('carName').value   || '—'],
+    ['Gears', gearCount],
+    ['F Camber',   vals.camber_f.toFixed(2)],
+    ['R Camber',   vals.camber_r.toFixed(2)],
+    ['F Stiffness',vals.stiff_f.toFixed(2)],
+    ['R Stiffness',vals.stiff_r.toFixed(2)],
+    ['F Damping',  vals.damp_f.toFixed(2)],
+    ['R Damping',  vals.damp_r.toFixed(2)],
+    ['R Diff Pow', vals.rdiff_pow.toFixed(2)],
+    ['R Diff Cst', vals.rdiff_cst.toFixed(2)],
+    ['Torque Vec', vals.torque_vec.toFixed(2)],
+    ['Final Drive',vals.final_drive.toFixed(2)],
+    ['Steer Ratio',vals.steer_ratio.toFixed(2)],
+  ];
+  document.getElementById('summaryGrid').innerHTML = rows.map(function(r){
+    return '<div class="summary-row"><span class="summary-key">'+r[0]+'</span><span class="summary-val">'+r[1]+'</span></div>';
+  }).join('');
+}
+
+// ─── ENCODE / DECODE ───
+function getBuildData() {
+  var d = {
+    n: document.getElementById('buildName').value,
+    c: document.getElementById('carName').value,
+    nt: document.getElementById('buildNotes').value,
+    gc: gearCount,
+    g: gearVals.map(function(v){return parseFloat(v.toFixed(2));})
+  };
+  SLIDERS.forEach(function(s){
+    if (s.k !== 'final_drive2') d[s.k] = vals[s.k];
+  });
+  return d;
+}
+
+function encodeData(d) {
+  return 'RCD:' + btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+}
+
+function decodeData(code) {
+  try {
+    var raw = code.trim();
+    if (raw.startsWith('RCD:')) raw = raw.slice(4);
+    return JSON.parse(decodeURIComponent(escape(atob(raw))));
+  } catch(e) { return null; }
+}
+
+function applyData(d) {
+  document.getElementById('buildName').value  = d.n  || '';
+  document.getElementById('carName').value    = d.c  || '';
+  document.getElementById('buildNotes').value = d.nt || '';
+  SLIDERS.forEach(function(s){
+    if (s.k !== 'final_drive2' && d[s.k] !== undefined) {
+      vals[s.k] = d[s.k];
+    }
+  });
+  vals['final_drive2'] = vals['final_drive'];
+  if (d.gc) { gearCount = d.gc; document.getElementById('gearCountVal').textContent = gearCount; }
+  if (d.g && d.g.length) { gearVals = d.g.slice(); }
+  renderAllSliders();
+  setSliderVal('final_drive2', vals['final_drive']);
+  buildGearTable();
+  updateSummary();
+  updateShareCode();
+}
+
+// ─── SHARE ───
+function updateShareCode() {
+  document.getElementById('shareCode').textContent = encodeData(getBuildData());
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(document.getElementById('shareCode').textContent)
+    .then(function(){ showToast('Code copied!', 'ok'); })
+    .catch(function(){ showToast('Copy failed — select manually', 'err'); });
+}
+
+// ─── IMPORT ───
+function showImportModal() {
+  document.getElementById('importInput').value = '';
+  document.getElementById('importModal').classList.add('open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function importCode() {
+  var raw = document.getElementById('importInput').value.trim();
+  if (!raw) { showToast('Paste a code first', 'err'); return; }
+  var d = decodeData(raw);
+  if (!d) { showToast('Invalid code — check and try again', 'err'); return; }
+  applyData(d);
+  closeModal('importModal');
+  showToast('Build imported!', 'ok');
+}
+
+// ─── SAVE / LOAD ───
+function saveBuild() {
+  var name = document.getElementById('buildName').value.trim();
+  if (!name) { showToast('Add a build name first', 'err'); return; }
+  var d = getBuildData();
+  var builds = getBuilds();
+  var id = 'b_' + Date.now();
+  builds.push({id:id, name:name, car:d.c, code:encodeData(d), ts:Date.now()});
+  saveBuilds(builds);
+  renderBuilds();
+  showToast('Build saved!', 'ok');
+}
+
+function getBuilds() { try{return JSON.parse(localStorage.getItem('rcd_builds')||'[]');}catch(e){return[];} }
+function saveBuilds(a) { localStorage.setItem('rcd_builds', JSON.stringify(a)); }
+
+function renderBuilds() {
+  var builds = getBuilds();
+  var el = document.getElementById('buildsList');
+  document.getElementById('buildCount').textContent = builds.length + ' build' + (builds.length!==1?'s':'');
+  if (!builds.length) { el.innerHTML='<div class="empty-state">No saved builds yet.<br>Fill in a name and hit Save.</div>'; return; }
+  el.innerHTML = '';
+  builds.slice().reverse().forEach(function(b){
+    var div = document.createElement('div');
+    div.className = 'build-item';
+    div.innerHTML =
+      '<div class="build-item-info" onclick="loadSaved(\''+b.id+'\')">' +
+        '<div class="build-item-name">'+escHtml(b.name)+'</div>' +
+        '<div class="build-item-car">'+escHtml(b.car||'No car')+'</div>' +
+      '</div>' +
+      '<button class="build-item-del" onclick="deleteBuild(\''+b.id+'\')" title="Delete">✕</button>';
+    el.appendChild(div);
+  });
+}
+
+function loadSaved(id) {
+  var b = getBuilds().find(function(x){return x.id===id;});
+  if (!b) return;
+  var d = decodeData(b.code);
+  if (!d) { showToast('Could not load build', 'err'); return; }
+  applyData(d);
+  showToast('Loaded: '+b.name, 'ok');
+}
+
+function deleteBuild(id) {
+  saveBuilds(getBuilds().filter(function(b){return b.id!==id;}));
+  renderBuilds();
+  showToast('Deleted', '');
+}
+
+// ─── RESET ───
+function resetAll() {
+  document.getElementById('buildName').value = '';
+  document.getElementById('carName').value = '';
+  document.getElementById('buildNotes').value = '';
+  SLIDERS.forEach(function(s){ vals[s.k] = s.def; });
+  vals['final_drive2'] = vals['final_drive'];
+  gearCount = 6;
+  document.getElementById('gearCountVal').textContent = 6;
+  initGears(6);
+  renderAllSliders();
+  buildGearTable();
+  onAnyChange();
+  showToast('Reset to defaults', '');
+}
+
+// ─── HELPERS ───
+function onAnyChange() { updateSummary(); updateShareCode(); }
+
+var toastTimer;
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type?' '+type:'');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){t.className='toast';}, 2400);
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── URL IMPORT ───
+function checkUrl() {
+  var p = new URLSearchParams(window.location.search);
+  var code = p.get('build');
+  if (code) {
+    var d = decodeData(decodeURIComponent(code));
+    if (d) { applyData(d); showToast('Build loaded from link!', 'ok'); }
+  }
+}
+
+document.getElementById('importModal').addEventListener('click', function(e){ if(e.target===this) closeModal('importModal'); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal('importModal'); });
+
+// ─── INIT ───
+renderAllSliders();
+initGears(gearCount);
+buildGearTable();
+updateSummary();
+updateShareCode();
+renderBuilds();
+checkUrl();
+</script>
+</body>
+</html>
