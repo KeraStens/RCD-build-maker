@@ -286,14 +286,15 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
     </div>
 
     <div class="panel">
-      <div class="panel-header"><span class="panel-title">Share Code</span></div>
+      <div class="panel-header"><span class="panel-title">Share</span></div>
       <div class="panel-body">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Copy and share this code. Anyone can import it on this site to load your build.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Copy the code to share manually, or generate a direct link anyone can open.</div>
         <div class="code-box" id="shareCode">—</div>
-        <div class="code-actions">
+        <div class="code-actions" style="margin-bottom:8px;">
           <button class="btn success" style="flex:1" onclick="copyCode()">Copy Code</button>
           <button class="btn" onclick="onAnyChange()">Refresh</button>
         </div>
+        <button class="btn primary" style="width:100%" onclick="copyShareLink()">Copy Direct Link</button>
       </div>
     </div>
 
@@ -594,6 +595,24 @@ function updateSummary() {
   }).join('');
 }
 
+// ─── KEY MAP (short → full) ───
+// n=name, c=car, nt=notes, gc=gearcount, g=gears
+// alignment: a=camber_f, b=caster_f, d=toe_f, e=camber_r, f=caster_r, h=toe_r
+// suspension: i=stiff_f, j=damp_f, k=height_f, l=wheel_f, m=stiff_r, o=damp_r, p=height_r, q=wheel_r
+// drivetrain: r=final_drive, s=torque_vec, t=fdiff_pow, u=fdiff_cst, v=fdiff_pre, w=rdiff_pow, x=rdiff_cst, y=rdiff_pre
+// steering: z=steer_ratio, A=lock2lock
+var KEY_ENC = {
+  camber_f:'a', caster_f:'b', toe_f:'d', camber_r:'e', caster_r:'f', toe_r:'h',
+  stiff_f:'i',  damp_f:'j',  height_f:'k', wheel_f:'l',
+  stiff_r:'m',  damp_r:'o',  height_r:'p', wheel_r:'q',
+  final_drive:'r', torque_vec:'s',
+  fdiff_pow:'t', fdiff_cst:'u', fdiff_pre:'v',
+  rdiff_pow:'w', rdiff_cst:'x', rdiff_pre:'y',
+  steer_ratio:'z', lock2lock:'A'
+};
+var KEY_DEC = {};
+Object.keys(KEY_ENC).forEach(function(k){ KEY_DEC[KEY_ENC[k]] = k; });
+
 // ─── ENCODE / DECODE ───
 function getBuildData() {
   var d = {
@@ -604,7 +623,7 @@ function getBuildData() {
     g: gearVals.map(function(v){return parseFloat(v.toFixed(2));})
   };
   SLIDERS.forEach(function(s){
-    if (s.k !== 'final_drive2') d[s.k] = vals[s.k];
+    if (s.k !== 'final_drive2') d[KEY_ENC[s.k]] = vals[s.k];
   });
   return d;
 }
@@ -626,9 +645,11 @@ function applyData(d) {
   document.getElementById('carName').value    = d.c  || '';
   document.getElementById('buildNotes').value = d.nt || '';
   SLIDERS.forEach(function(s){
-    if (s.k !== 'final_drive2' && d[s.k] !== undefined) {
-      vals[s.k] = d[s.k];
-    }
+    if (s.k === 'final_drive2') return;
+    var short = KEY_ENC[s.k];
+    // support both new short keys and old long keys for graceful fallback
+    var v = d[short] !== undefined ? d[short] : d[s.k];
+    if (v !== undefined) vals[s.k] = v;
   });
   vals['final_drive2'] = vals['final_drive'];
   if (d.gc) { gearCount = d.gc; document.getElementById('gearCountVal').textContent = gearCount; }
@@ -649,6 +670,15 @@ function copyCode() {
   navigator.clipboard.writeText(document.getElementById('shareCode').textContent)
     .then(function(){ showToast('Code copied!', 'ok'); })
     .catch(function(){ showToast('Copy failed — select manually', 'err'); });
+}
+
+function copyShareLink() {
+  var code = document.getElementById('shareCode').textContent;
+  var base = window.location.href.split('?')[0];
+  var link = base + '?build=' + encodeURIComponent(code);
+  navigator.clipboard.writeText(link)
+    .then(function(){ showToast('Direct link copied!', 'ok'); })
+    .catch(function(){ showToast('Copy failed — try again', 'err'); });
 }
 
 // ─── IMPORT ───
