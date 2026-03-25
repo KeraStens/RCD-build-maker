@@ -628,15 +628,58 @@ function getBuildData() {
   return d;
 }
 
-function encodeData(d) {
-  return 'RCD:' + btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+// ─── ENCODE / DECODE (deflate compressed) ───
+async function encodeData(d) {
+  var json = JSON.stringify(d);
+  var bytes = new TextEncoder().encode(json);
+  var cs = new CompressionStream('deflate-raw');
+  var writer = cs.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  var chunks = [];
+  var reader = cs.readable.getReader();
+  while (true) {
+    var res = await reader.read();
+    if (res.done) break;
+    chunks.push(res.value);
+  }
+  var total = chunks.reduce(function(a,b){return a+b.length;},0);
+  var merged = new Uint8Array(total);
+  var off = 0;
+  chunks.forEach(function(c){merged.set(c,off);off+=c.length;});
+  var b64 = btoa(String.fromCharCode.apply(null, merged));
+  return 'RCD:' + b64;
 }
 
-function decodeData(code) {
+async function decodeData(code) {
   try {
     var raw = code.trim();
     if (raw.startsWith('RCD:')) raw = raw.slice(4);
-    return JSON.parse(decodeURIComponent(escape(atob(raw))));
+    // try new compressed format first
+    try {
+      var bin = atob(raw);
+      var bytes = new Uint8Array(bin.length);
+      for (var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      var ds = new DecompressionStream('deflate-raw');
+      var writer = ds.writable.getWriter();
+      writer.write(bytes);
+      writer.close();
+      var chunks = [];
+      var reader = ds.readable.getReader();
+      while (true) {
+        var res = await reader.read();
+        if (res.done) break;
+        chunks.push(res.value);
+      }
+      var total = chunks.reduce(function(a,b){return a+b.length;},0);
+      var merged = new Uint8Array(total);
+      var off = 0;
+      chunks.forEach(function(c){merged.set(c,off);off+=c.length;});
+      return JSON.parse(new TextDecoder().decode(merged));
+    } catch(e) {
+      // fallback: try old uncompressed base64 format
+      return JSON.parse(decodeURIComponent(escape(atob(raw))));
+    }
   } catch(e) { return null; }
 }
 
@@ -662,8 +705,9 @@ function applyData(d) {
 }
 
 // ─── SHARE ───
-function updateShareCode() {
-  document.getElementById('shareCode').textContent = encodeData(getBuildData());
+async function updateShareCode() {
+  var code = await encodeData(getBuildData());
+  document.getElementById('shareCode').textContent = code;
 }
 
 function copyCode() {
@@ -672,7 +716,7 @@ function copyCode() {
     .catch(function(){ showToast('Copy failed — select manually', 'err'); });
 }
 
-function copyShareLink() {
+async function copyShareLink() {
   var code = document.getElementById('shareCode').textContent;
   var base = window.location.href.split('?')[0];
   var link = base + '?build=' + encodeURIComponent(code);
@@ -688,10 +732,10 @@ function showImportModal() {
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 
-function importCode() {
+async function importCode() {
   var raw = document.getElementById('importInput').value.trim();
   if (!raw) { showToast('Paste a code first', 'err'); return; }
-  var d = decodeData(raw);
+  var d = await decodeData(raw);
   if (!d) { showToast('Invalid code — check and try again', 'err'); return; }
   applyData(d);
   closeModal('importModal');
@@ -699,13 +743,14 @@ function importCode() {
 }
 
 // ─── SAVE / LOAD ───
-function saveBuild() {
+async function saveBuild() {
   var name = document.getElementById('buildName').value.trim();
   if (!name) { showToast('Add a build name first', 'err'); return; }
   var d = getBuildData();
+  var code = await encodeData(d);
   var builds = getBuilds();
   var id = 'b_' + Date.now();
-  builds.push({id:id, name:name, car:d.c, code:encodeData(d), ts:Date.now()});
+  builds.push({id:id, name:name, car:d.c, code:code, ts:Date.now()});
   saveBuilds(builds);
   renderBuilds();
   showToast('Build saved!', 'ok');
@@ -733,10 +778,10 @@ function renderBuilds() {
   });
 }
 
-function loadSaved(id) {
+async function loadSaved(id) {
   var b = getBuilds().find(function(x){return x.id===id;});
   if (!b) return;
-  var d = decodeData(b.code);
+  var d = await decodeData(b.code);
   if (!d) { showToast('Could not load build', 'err'); return; }
   applyData(d);
   showToast('Loaded: '+b.name, 'ok');
@@ -781,11 +826,11 @@ function escHtml(s) {
 }
 
 // ─── URL IMPORT ───
-function checkUrl() {
+async function checkUrl() {
   var p = new URLSearchParams(window.location.search);
   var code = p.get('build');
   if (code) {
-    var d = decodeData(decodeURIComponent(code));
+    var d = await decodeData(decodeURIComponent(code));
     if (d) { applyData(d); showToast('Build loaded from link!', 'ok'); }
   }
 }
