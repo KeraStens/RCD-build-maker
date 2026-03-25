@@ -62,7 +62,9 @@ select.field-input{cursor:pointer;}
 .slider-group:last-child{margin-bottom:0;}
 .slider-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
 .slider-name{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;letter-spacing:.04em;color:var(--text);}
-.slider-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);min-width:56px;text-align:right;}
+.slider-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);width:70px;text-align:right;background:transparent;border:1px solid transparent;border-radius:4px;padding:2px 4px;cursor:text;transition:border-color .15s,background .15s;}
+.slider-val:hover{border-color:var(--border2);background:var(--bg3);}
+.slider-val:focus{outline:none;border-color:var(--accent);background:var(--bg3);color:var(--accent);}
 .slider-sub{font-size:11px;color:var(--muted);margin-bottom:8px;}
 .slider-row{display:flex;align-items:center;gap:10px;}
 .slider-lim{font-family:'DM Mono',monospace;font-size:11px;color:var(--dim);min-width:36px;}
@@ -398,7 +400,7 @@ function renderSlider(s) {
   container.innerHTML =
     '<div class="slider-header">' +
       '<span class="slider-name">' + s.lbl + '</span>' +
-      '<span class="slider-val" id="sv_' + s.k + '">' + cur.toFixed(s.dec) + '</span>' +
+      '<input type="number" class="slider-val" id="sv_' + s.k + '" value="' + cur.toFixed(s.dec) + '" step="' + s.step + '" min="' + s.min + '" max="' + s.max + '" oninput="onValInput(\'' + s.k + '\',this)" onblur="onValBlur(\'' + s.k + '\',this)">' +
     '</div>' +
     '<div class="slider-sub">' + s.sub + '</div>' +
     '<div class="slider-row">' +
@@ -412,25 +414,56 @@ function onSlider(key, el) {
   var s = SLIDERS.find(function(x){return x.k===key;});
   var v = parseFloat((s.min + parseInt(el.value) * s.step).toFixed(s.dec));
   vals[key] = v;
-  document.getElementById('sv_' + key).textContent = v.toFixed(s.dec);
-  // sync final_drive / final_drive2
+  var disp = document.getElementById('sv_' + key);
+  if (disp) disp.value = v.toFixed(s.dec);
+  syncFinalDrive(key, v, s);
+  onAnyChange();
+}
+
+function onValInput(key, el) {
+  var s = SLIDERS.find(function(x){return x.k===key;});
+  var v = parseFloat(parseFloat(el.value).toFixed(s.dec));
+  if (isNaN(v)) return;
+  v = Math.max(s.min, Math.min(s.max, v));
+  vals[key] = v;
+  var range = document.getElementById('sr_' + key);
+  if (range) range.value = Math.round((v - s.min) / s.step);
+  syncFinalDrive(key, v, s);
+  onAnyChange();
+}
+
+function onValBlur(key, el) {
+  var s = SLIDERS.find(function(x){return x.k===key;});
+  var v = parseFloat(parseFloat(el.value).toFixed(s.dec));
+  if (isNaN(v)) v = s.def;
+  v = Math.max(s.min, Math.min(s.max, v));
+  vals[key] = v;
+  el.value = v.toFixed(s.dec);
+  var range = document.getElementById('sr_' + key);
+  if (range) range.value = Math.round((v - s.min) / s.step);
+  syncFinalDrive(key, v, s);
+  onAnyChange();
+}
+
+function syncFinalDrive(key, v, s) {
   if (key === 'final_drive') {
     vals['final_drive2'] = v;
     var el2 = document.getElementById('sr_final_drive2');
     var sv2 = document.getElementById('sv_final_drive2');
-    if (el2) { var s2 = SLIDERS.find(function(x){return x.k==='final_drive2';}); el2.value = Math.round((v - s2.min)/s2.step); }
-    if (sv2) sv2.textContent = v.toFixed(2);
+    var s2 = SLIDERS.find(function(x){return x.k==='final_drive2';});
+    if (el2) el2.value = Math.round((v - s2.min)/s2.step);
+    if (sv2) sv2.value = v.toFixed(s2.dec);
     updateGearTable();
   }
   if (key === 'final_drive2') {
     vals['final_drive'] = v;
     var el1 = document.getElementById('sr_final_drive');
     var sv1 = document.getElementById('sv_final_drive');
-    if (el1) { var s1 = SLIDERS.find(function(x){return x.k==='final_drive';}); el1.value = Math.round((v - s1.min)/s1.step); }
-    if (sv1) sv1.textContent = v.toFixed(2);
+    var s1 = SLIDERS.find(function(x){return x.k==='final_drive';});
+    if (el1) el1.value = Math.round((v - s1.min)/s1.step);
+    if (sv1) sv1.value = v.toFixed(s1.dec);
     updateGearTable();
   }
-  onAnyChange();
 }
 
 function setSliderVal(key, v) {
@@ -441,7 +474,7 @@ function setSliderVal(key, v) {
   var el = document.getElementById('sr_' + key);
   var disp = document.getElementById('sv_' + key);
   if (el) el.value = Math.round((vals[key] - s.min) / s.step);
-  if (disp) disp.textContent = vals[key].toFixed(s.dec);
+  if (disp) disp.value = vals[key].toFixed(s.dec);
 }
 
 function renderAllSliders() {
@@ -477,7 +510,7 @@ function buildGearTable() {
     var tr = document.createElement('tr');
     tr.innerHTML =
       '<td><span class="gear-badge">' + gearNames[i] + '</span></td>' +
-      '<td><span style="font-family:\'DM Mono\',monospace;font-size:13px;color:var(--accent)" id="gv_'+i+'">'+g.toFixed(2)+'</span></td>' +
+      '<td><input type="number" id="gv_'+i+'" value="'+g.toFixed(2)+'" min="'+GEAR_MIN+'" max="'+GEAR_MAX+'" step="0.01" style="font-family:\'DM Mono\',monospace;font-size:13px;color:var(--accent);width:68px;background:transparent;border:1px solid transparent;border-radius:4px;padding:2px 4px;text-align:right;" oninput="onGearInput('+i+',this)" onblur="onGearBlur('+i+',this)" onmouseover="this.style.borderColor=\'var(--border2)\';this.style.background=\'var(--bg3)\'" onmouseout="if(document.activeElement!==this){this.style.borderColor=\'transparent\';this.style.background=\'transparent\'}" onfocus="this.style.borderColor=\'var(--accent)\';this.style.background=\'var(--bg3)\'"></td>' +
       '<td><input type="range" min="0" max="'+stepsG+'" value="'+posG+'" step="1" data-gi="'+i+'" oninput="onGearSlider(this)" style="width:100%"></td>';
     tbody.appendChild(tr);
   });
@@ -486,14 +519,47 @@ function buildGearTable() {
 function updateGearTable() {
   gearVals.forEach(function(g, i) {
     var gv = document.getElementById('gv_'+i);
-    if (gv) gv.textContent = g.toFixed(2);
+    if (gv) gv.value = g.toFixed(2);
+    var rows = document.querySelectorAll('#gearRows tr');
+    if (rows[i]) {
+      var rangeEl = rows[i].querySelector('input[type=range]');
+      if (rangeEl) rangeEl.value = Math.round((g - GEAR_MIN) / 0.01);
+    }
   });
 }
 
 function onGearSlider(el) {
   var i = parseInt(el.dataset.gi);
   gearVals[i] = parseFloat((GEAR_MIN + parseInt(el.value)*0.01).toFixed(2));
-  updateGearTable();
+  var gv = document.getElementById('gv_'+i);
+  if (gv) gv.value = gearVals[i].toFixed(2);
+  onAnyChange();
+}
+
+function onGearInput(i, el) {
+  var v = parseFloat(parseFloat(el.value).toFixed(2));
+  if (isNaN(v)) return;
+  v = Math.max(GEAR_MIN, Math.min(GEAR_MAX, v));
+  gearVals[i] = v;
+  var rows = document.querySelectorAll('#gearRows tr');
+  if (rows[i]) {
+    var rangeEl = rows[i].querySelector('input[type=range]');
+    if (rangeEl) rangeEl.value = Math.round((v - GEAR_MIN) / 0.01);
+  }
+  onAnyChange();
+}
+
+function onGearBlur(i, el) {
+  var v = parseFloat(parseFloat(el.value).toFixed(2));
+  if (isNaN(v)) v = GEAR_DEF;
+  v = Math.max(GEAR_MIN, Math.min(GEAR_MAX, v));
+  gearVals[i] = v;
+  el.value = v.toFixed(2);
+  var rows = document.querySelectorAll('#gearRows tr');
+  if (rows[i]) {
+    var rangeEl = rows[i].querySelector('input[type=range]');
+    if (rangeEl) rangeEl.value = Math.round((v - GEAR_MIN) / 0.01);
+  }
   onAnyChange();
 }
 
