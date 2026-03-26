@@ -33,6 +33,7 @@ body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradi
 .btn.danger:hover{background:#1a0810;}
 .btn.success{border-color:#1a3a10;color:var(--accent3);}
 .btn.success:hover{background:#0d1f08;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
 
 .layout{max-width:1100px;margin:0 auto;padding:28px 24px 80px;display:grid;grid-template-columns:1fr 340px;gap:20px;position:relative;z-index:1;}
 
@@ -97,6 +98,10 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
 
 .code-box{background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--accent3);word-break:break-all;line-height:1.6;max-height:120px;overflow-y:auto;user-select:all;margin-bottom:10px;}
 .code-actions{display:flex;gap:8px;}
+
+/* Short link box */
+.shortlink-box{background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;line-height:1.5;margin-bottom:8px;min-height:38px;display:flex;align-items:center;}
+.shortlink-box.muted{color:var(--dim);}
 
 .builds-list{display:flex;flex-direction:column;gap:8px;}
 .build-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .15s;}
@@ -288,13 +293,22 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
     <div class="panel">
       <div class="panel-header"><span class="panel-title">Share</span></div>
       <div class="panel-body">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Copy the code to share manually, or generate a direct link anyone can open.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Copy the build code to share manually, or generate a short link to paste anywhere.</div>
+
+        <!-- Raw code -->
         <div class="code-box" id="shareCode">—</div>
-        <div class="code-actions" style="margin-bottom:8px;">
+        <div class="code-actions" style="margin-bottom:14px;">
           <button class="btn success" style="flex:1" onclick="copyCode()">Copy Code</button>
           <button class="btn" onclick="onAnyChange()">Refresh</button>
         </div>
-        <button class="btn primary" style="width:100%" onclick="copyShareLink()">Copy Direct Link</button>
+
+        <!-- Short link -->
+        <div style="font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Short Link</div>
+        <div class="shortlink-box muted" id="shortLinkBox">— click Generate to create —</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn primary" style="flex:1" id="genLinkBtn" onclick="generateShortLink()">Generate Short Link</button>
+          <button class="btn success" id="copyLinkBtn" onclick="copyShortLink()" style="display:none">Copy Link</button>
+        </div>
       </div>
     </div>
 
@@ -336,8 +350,6 @@ input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
 <script>
 // ─────────────────────────────────────────────
 // SLIDER DEFINITIONS
-// key, label, sub, min, max, default, step, decimals, divider
-// divider = internal integer range multiplier
 // ─────────────────────────────────────────────
 var SLIDERS = [
   // alignment
@@ -379,7 +391,6 @@ var gearCount = 6;
 var gearVals = [];
 var GEAR_MIN = 0.10, GEAR_MAX = 7.50, GEAR_DEF = 0.10;
 function initGears(n) {
-  // sensible spread defaults
   var defaults6 = [3.10,2.28,1.78,1.42,1.18,0.91];
   gearVals = [];
   for (var i=0;i<n;i++) {
@@ -595,12 +606,7 @@ function updateSummary() {
   }).join('');
 }
 
-// ─── KEY MAP (short → full) ───
-// n=name, c=car, nt=notes, gc=gearcount, g=gears
-// alignment: a=camber_f, b=caster_f, d=toe_f, e=camber_r, f=caster_r, h=toe_r
-// suspension: i=stiff_f, j=damp_f, k=height_f, l=wheel_f, m=stiff_r, o=damp_r, p=height_r, q=wheel_r
-// drivetrain: r=final_drive, s=torque_vec, t=fdiff_pow, u=fdiff_cst, v=fdiff_pre, w=rdiff_pow, x=rdiff_cst, y=rdiff_pre
-// steering: z=steer_ratio, A=lock2lock
+// ─── KEY MAP ───
 var KEY_ENC = {
   camber_f:'a', caster_f:'b', toe_f:'d', camber_r:'e', caster_r:'f', toe_r:'h',
   stiff_f:'i',  damp_f:'j',  height_f:'k', wheel_f:'l',
@@ -628,7 +634,6 @@ function getBuildData() {
   return d;
 }
 
-// ─── ENCODE / DECODE (deflate compressed) ───
 async function encodeData(d) {
   var json = JSON.stringify(d);
   var bytes = new TextEncoder().encode(json);
@@ -655,7 +660,6 @@ async function decodeData(code) {
   try {
     var raw = code.trim();
     if (raw.startsWith('RCD:')) raw = raw.slice(4);
-    // try new compressed format first
     try {
       var bin = atob(raw);
       var bytes = new Uint8Array(bin.length);
@@ -677,7 +681,6 @@ async function decodeData(code) {
       chunks.forEach(function(c){merged.set(c,off);off+=c.length;});
       return JSON.parse(new TextDecoder().decode(merged));
     } catch(e) {
-      // fallback: try old uncompressed base64 format
       return JSON.parse(decodeURIComponent(escape(atob(raw))));
     }
   } catch(e) { return null; }
@@ -690,7 +693,6 @@ function applyData(d) {
   SLIDERS.forEach(function(s){
     if (s.k === 'final_drive2') return;
     var short = KEY_ENC[s.k];
-    // support both new short keys and old long keys for graceful fallback
     var v = d[short] !== undefined ? d[short] : d[s.k];
     if (v !== undefined) vals[s.k] = v;
   });
@@ -702,12 +704,14 @@ function applyData(d) {
   buildGearTable();
   updateSummary();
   updateShareCode();
+  resetShortLink();
 }
 
-// ─── SHARE ───
+// ─── SHARE CODE ───
 async function updateShareCode() {
   var code = await encodeData(getBuildData());
   document.getElementById('shareCode').textContent = code;
+  resetShortLink();
 }
 
 function copyCode() {
@@ -716,12 +720,63 @@ function copyCode() {
     .catch(function(){ showToast('Copy failed — select manually', 'err'); });
 }
 
-async function copyShareLink() {
-  var code = document.getElementById('shareCode').textContent;
-  var base = window.location.href.split('?')[0];
-  var link = base + '?build=' + encodeURIComponent(code);
-  navigator.clipboard.writeText(link)
-    .then(function(){ showToast('Direct link copied!', 'ok'); })
+// ─── SHORT LINK ───
+var currentShortLink = '';
+
+function resetShortLink() {
+  currentShortLink = '';
+  var box = document.getElementById('shortLinkBox');
+  box.textContent = '— click Generate to create —';
+  box.classList.add('muted');
+  document.getElementById('copyLinkBtn').style.display = 'none';
+  document.getElementById('genLinkBtn').textContent = 'Generate Short Link';
+  document.getElementById('genLinkBtn').disabled = false;
+}
+
+async function generateShortLink() {
+  var btn = document.getElementById('genLinkBtn');
+  var box = document.getElementById('shortLinkBox');
+
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+  box.textContent = 'Contacting TinyURL...';
+  box.classList.add('muted');
+
+  try {
+    var code = document.getElementById('shareCode').textContent;
+    if (!code || code === '—') {
+      code = await encodeData(getBuildData());
+    }
+    var base = window.location.href.split('?')[0];
+    var longUrl = base + '?build=' + encodeURIComponent(code);
+
+    var response = await fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(longUrl));
+    if (!response.ok) throw new Error('TinyURL error');
+    var shortUrl = await response.text();
+    shortUrl = shortUrl.trim();
+
+    if (!shortUrl.startsWith('http')) throw new Error('Bad response');
+
+    currentShortLink = shortUrl;
+    box.textContent = shortUrl;
+    box.classList.remove('muted');
+    document.getElementById('copyLinkBtn').style.display = 'block';
+    btn.textContent = 'Regenerate';
+    btn.disabled = false;
+
+  } catch(e) {
+    box.textContent = 'Failed to generate — check connection and try again';
+    box.classList.add('muted');
+    btn.textContent = 'Generate Short Link';
+    btn.disabled = false;
+    showToast('Short link failed', 'err');
+  }
+}
+
+function copyShortLink() {
+  if (!currentShortLink) return;
+  navigator.clipboard.writeText(currentShortLink)
+    .then(function(){ showToast('Short link copied!', 'ok'); })
     .catch(function(){ showToast('Copy failed — try again', 'err'); });
 }
 
